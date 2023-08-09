@@ -28,5 +28,6 @@ cargo build --release &&
 
 if [[ -f "target/release/json-shootout" ]] ; then
     echo "Copying Rust binary to target/release/json-shootout -> rust-bench"
-    cp target/release/json-shootout rust-bench
+    rm -vf rust-bench
+    cp -v target/release/json-shootout rust-bench
 fi

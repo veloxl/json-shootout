@@ -1,6 +1,7 @@
 #[global_allocator]
 static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
+use rayon::prelude::*;
 use simd_json::{self, ValueAccess};
 use std::error::Error;
 use std::time::Instant;
@@ -15,7 +16,7 @@ fn pid_res_usage_kb() -> u64 {
     use libproc::libproc::pid_rusage::{pidrusage, PIDRUsage, RUsageInfoV0};
 
     match pidrusage::<RUsageInfoV0>(std::process::id() as i32) {
-        Ok(res) => return res.memory_used() / 1024,
+        Ok(res) => res.memory_used() / 1024,
         Err(e) => {
             println!("Failed to retrieve RES memory for pid: {}", e);
             std::process::exit(1);
@@ -39,13 +40,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         memory,
     );
 
+    let dictionary = json.as_object().unwrap();
+    let keys: Vec<_> = dictionary.keys().collect();
+
     // Second test: iterate through the records
     let start_time = Instant::now();
-    if let Some(dictionary) = json.as_object() {
-        for key in dictionary.keys() {
-            let _ = dictionary[key];
-        }
-    }
+    keys.par_iter().for_each(|key| {
+        let _ = dictionary[&**key];
+    });
     let duration = start_time.elapsed();
 
     println!(
