@@ -1,5 +1,5 @@
 #[global_allocator]
-static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
+static GLOBAL: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 use rayon::prelude::*;
 use simd_json::{self, ValueAccess};
