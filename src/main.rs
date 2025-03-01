@@ -1,52 +1,63 @@
-#[global_allocator]
-static GLOBAL: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
-
 use rayon::prelude::*;
-use simd_json::{self, ValueAccess};
+use rustc_hash::FxHashMap;
+use sonic_rs::{JsonContainerTrait, Value};
 use std::error::Error;
 use std::time::Instant;
 
+#[global_allocator]
+static GLOBAL: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
+
 #[cfg(target_os = "linux")]
 fn pid_res_usage_kb() -> u64 {
-    probes::process_memory::current_rss().unwrap()
+    use procfs::process::Process;
+    Process::myself().unwrap().stat().unwrap().rss * 4
 }
 
 #[cfg(not(target_os = "linux"))]
 fn pid_res_usage_kb() -> u64 {
-    use libproc::libproc::pid_rusage::{pidrusage, PIDRUsage, RUsageInfoV0};
-
+    use libproc::libproc::pid_rusage::{RUsageInfoV0, pidrusage};
     match pidrusage::<RUsageInfoV0>(std::process::id() as i32) {
-        Ok(res) => res.memory_used() / 1024,
+        Ok(res) => res.ri_resident_size / 1024,
         Err(e) => {
-            println!("Failed to retrieve RES memory for pid: {}", e);
+            eprintln!("Failed to retrieve RES memory for pid: {}", e);
             std::process::exit(1);
         }
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut data = std::fs::read("data/dictionary.json")?;
+    let data = std::fs::read("data/dictionary.json")?;
 
-    // First test: load the data
+    // Measure memory usage before deserialization
     let start_mem = pid_res_usage_kb();
+
     let start_time = Instant::now();
-    let json = simd_json::to_borrowed_value(&mut data)?;
+    let json: Value = sonic_rs::from_slice(&data)?;
+
+    let json_map: FxHashMap<String, sonic_rs::Value> = if let Some(obj) = json.as_object() {
+        obj.iter()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect()
+    } else {
+        return Err("Root JSON value is not an object".into());
+    };
+
     let duration = start_time.elapsed();
+
+    // Calculate memory usage
     let memory = pid_res_usage_kb() - start_mem;
 
     println!(
         "Loaded dictionary in {}s, size {}kB",
         duration.as_secs_f32(),
-        memory,
+        memory
     );
 
-    let dictionary = json.as_object().unwrap();
-    let keys: Vec<_> = dictionary.keys().collect();
+    let keys: Vec<String> = json_map.keys().cloned().collect();
 
-    // Second test: iterate through the records
     let start_time = Instant::now();
     keys.par_iter().for_each(|key| {
-        let _ = dictionary[&**key];
+        let _ = json_map.get(key);
     });
     let duration = start_time.elapsed();
 
@@ -54,13 +65,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         "Looked up all keys in dictionary in {}s",
         duration.as_secs_f32()
     );
-
-    // Dump the JSON blob
-    /*
-    use serde_json::Value;
-    let json_blob: Value = simd_json::serde::from_borrowed_value(json)?;
-    println!("{}", json_blob);
-    */
 
     Ok(())
 }
