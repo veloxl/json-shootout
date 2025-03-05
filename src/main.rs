@@ -9,8 +9,7 @@ static GLOBAL: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 #[cfg(target_os = "linux")]
 fn pid_res_usage_kb() -> u64 {
-    use procfs::process::Process;
-    Process::myself().unwrap().stat().unwrap().rss * 4
+    probes::process_memory::current_rss().unwrap()
 }
 
 #[cfg(not(target_os = "linux"))]
