@@ -1,6 +1,6 @@
 [package]
 name = "json-shootout"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,7 +8,7 @@ edition = "2024"
 [dependencies]
 snmalloc-rs = { version = "0.3.5", features = ["native-cpu"] }
 rayon = "1.7.0"
-sonic-rs = { version = "0.3.17", features = ["utf8_lossy"] }
+sonic-rs = { version = "0.5.6", features = ["utf8_lossy"] }
 rustc-hash = "2.1.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]

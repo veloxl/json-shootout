@@ -1,6 +1,8 @@
 #![warn(clippy::pedantic)]
 #![deny(unsafe_code)]
 
+#[cfg(target_os = "linux")]
+use probes::ProbeError;
 use rayon::prelude::*;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use sonic_rs::{JsonContainerTrait, Value};
@@ -12,8 +14,8 @@ use std::time::Instant;
 static GLOBAL: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 #[cfg(target_os = "linux")]
-fn pid_res_usage_kb() -> u64 {
-    probes::process_memory::current_rss().unwrap()
+fn pid_res_usage_kb() -> Result<u64, ProbeError> {
+    probes::process_memory::current_rss()
 }
 
 #[cfg(not(target_os = "linux"))]
